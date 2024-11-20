@@ -1,0 +1,1 @@
+# kode Gaussian Naive Bayes taruh di sini
