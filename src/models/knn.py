@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional, Any, Union
 import pandas as pd
 import numpy as np
+import json
 
 class KNN:
     def __init__(self, k: int, method: str = "manhattan", 
@@ -75,3 +76,28 @@ class KNN:
             return [classify_single(input_X.iloc[i]) for i in range(len(input_X))]
         else:
             raise TypeError("Tipe input bukan merupakan pd.Series ataupun pd.DataFrame.")
+        
+    def save(self, save_path: str) -> None:        
+        serialized_model: Dict[str, Any] = {
+            "k": self.k,
+            "method": self.method,
+            "p": self.p,
+            "train_X": self.train_X.to_dict(),
+            "train_y": self.train_y.to_list()
+        }
+
+        with open(save_path, "w") as file:
+            json.dump(serialized_model, file)
+
+        print(f"Model saved to {save_path}")
+
+    @classmethod
+    def load(cls, load_path: str) -> "KNN":
+        with open(load_path, "r") as file:
+            serialized_model: Dict[str, str] = json.load(file)
+
+        knn = cls(k = serialized_model["k"], method = serialized_model["method"], p = serialized_model["p"])
+        knn.train_X = pd.DataFrame(serialized_model["train_X"])
+        knn.train_y = pd.DataFrame(serialized_model["train_y"])
+
+        return knn
