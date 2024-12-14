@@ -68,7 +68,7 @@ class KNN:
 
             # Kembalikan kelas yang paling sering muncul
             most_common_class: str = max(target, key = target.get)
-            return int(most_common_class)
+            return most_common_class
 
         # Cek model sudah di fit belum
         if self.train_X is None or self.train_y is None:
