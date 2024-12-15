@@ -1,38 +1,62 @@
 import numpy as np
 import pandas as pd
+from collections import Counter
 
 class ID3DecisionTree:
     def __init__(self):
-        self.tree = {}
+        self.tree = None
 
-    def entropy(self, data):
-        vals, cnts = np.unique(data, return_counts=True)
-        probabilities = cnts / len(data)
-        return -np.sum(probabilities * np.log2(probabilities))
+    def entropy(self, y):
+        # fungsi untuk menghitung entropi
+        cnts = Counter(y)
+        total = len(y)
+        return -sum((cnt/total) * np.log2(cnt/total) for cnt in cnts.values())
 
-    def informationGain(self, X_col, y):
-        """Calculate information gain of a split."""
-        entropy_before = self._entropy(y)
-        values, counts = np.unique(X_col, return_counts=True)
-        weighted_entropy_after = np.sum(
-            (counts[i] / len(X_col)) * self._entropy(y[X_col == values[i]])
-            for i in range(len(values))
-        )
-        return entropy_before - weighted_entropy_after
+    def information_gain(self, X_col, y):
+        #hitung information gain
+        entropyS = self.entropy(y)
+        vals, cnts = np.unique(X_col, return_counts=True)
+        total = len(X_col)
+        weighted_entropy = sum((cnts[i]/total)*self.entropy(y[X_col==value]) for i,value in enumerate(vals))
+        return entropyS - weighted_entropy
 
-    
+    def best_split(self, X, y):
+        #pilih feature terbaik saat split
+        gains = [(col, self.information_gain(X[col], y)) for col in X.columns]
+        return max(gains, key=lambda x: x[1])
 
+    def fit(self, X, y):
+        #train data menggunakan ID3
+        if len(np.unique(y)) == 1:
+            return y.iloc[0]  #NODE LEAF
 
+        if X.empty:
+            return y.mode()[0]  #Kelas mayoritas jika fiturnya habis
+        best_feature, _ = self.best_split(X, y)
+        tree = {best_feature: {}}
 
+        for value in np.unique(X[best_feature]):
+            sub_X = X[X[best_feature] == value].drop(columns=[best_feature])
+            sub_y = y[X[best_feature] == value]
+            tree[best_feature][value] = self.fit(sub_X, sub_y)
 
-data = {
-    'Outlook': ['Sunny', 'Sunny', 'Overcast', 'Rain', 'Rain', 'Rain', 'Overcast', 'Sunny', 'Sunny', 'Rain', 'Sunny', 'Overcast', 'Overcast', 'Rain'],
-    'Temperature': [85, 80, 83, 70, 68, 65, 64, 72, 69, 75, 75, 72, 81, 71],
-    'Humidity': [85, 90, 78, 96, 80, 70, 65, 95, 70, 80, 70, 90, 75, 80],
-    'Windy': ['False', 'True', 'False', 'False', 'False', 'True', 'True', 'False', 'False', 'False', 'True', 'True', 'False', 'True'],
-    'PlayTennis': ['No', 'No', 'Yes', 'Yes', 'Yes', 'No', 'Yes', 'No', 'Yes', 'Yes', 'Yes', 'Yes', 'Yes', 'No']
-}
+        self.tree = tree
+        return tree
 
-tree = ID3DecisionTree()
+    def predict_instance(self, instance, tree):
+        #prediksi stu buah instance
+        if not isinstance(tree, dict):
+            return tree
 
-print(tree.entropy(data['PlayTennis']))
+        feature = next(iter(tree))
+        value = instance[feature]
+        subtree = tree[feature].get(value, None)
+
+        if subtree is None:
+            return None 
+
+        return self.predict_instance(instance, subtree)
+
+    def predict(self, X):
+        # prediksi banyak instance
+        return X.apply(lambda row: self.predict_instance(row, self.tree), axis=1)
