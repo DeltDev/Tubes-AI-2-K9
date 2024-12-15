@@ -20,9 +20,9 @@ $ pip install notebook
 - Buka file _Jupyter Notebook_ di folder notebook dan jalankan program dengan menekan tombol "Run All" di Visual Studio Code.
 
 ## Pembagian Tugas
-|  **NIM**   |            **Tugas**            |
-|------------|---------------------------------|
-|  13522002  |                                 |
-|  13522007  |                                 |
-|  13522036  |                                 |
-|  13522056  | README, Model KNN, Validasi KNN |
+|  **NIM**   |              **Tugas**            |
+|------------|-----------------------------------|
+|  13522002  | Model NB, Validasi NB             |
+|  13522007  | Data Cleaning, Data Preprocessing |
+|  13522036  | Model ID3, Validasi ID3           |
+|  13522056  | README, Model KNN, Validasi KNN   |
