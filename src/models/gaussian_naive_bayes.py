@@ -50,13 +50,13 @@ class NaiveBayes:
             print("Model not trained")
             return
 
-        print("MEAN")
+        print("Mean")
         for attr in self.meanMap:
             print(attr)
             for target in self.meanMap[attr]:
                 print(f"    {target}: {self.meanMap[attr][target]}")
 
-        print("\nSTANDARD DEVIATION")
+        print("\nStandard Deviation")
         for attr in self.sdevMap:
             print(attr)
             for target in self.sdevMap[attr]:
@@ -69,8 +69,15 @@ class NaiveBayes:
             f_x = (1/(np.sqrt(2*pi) * sdev)) * np.exp(-0.5 * (((x-mean)/sdev)**2))
             return f_x
     
-        mean = self.meanMap[attribute][targetValue]
-        sdev = self.sdevMap[attribute][targetValue]
+        try:
+            mean = self.meanMap[attribute][targetValue]
+            sdev = self.sdevMap[attribute][targetValue]
+        except KeyError:
+            mean = 0
+            sdev = 0
+
+        if (mean == 0 or sdev == 0):
+            return 0
 
         prob = normalDistribution(attrValue, mean, sdev)
         return prob
@@ -83,8 +90,8 @@ class NaiveBayes:
         numData = len(attr_categorical.index)
 
         # TODO un-hardcode target
-        self.probability = {'target': {}}
-        self.frequency = {'target': {}}
+        self.probability = {'attack_cat': {}}
+        self.frequency = {'attack_cat': {}}
 
         # maps the frequencies of every unique values of each attribute categorical with each unique target label value
         # map structure:
@@ -103,10 +110,10 @@ class NaiveBayes:
             targetValue = str(bn_target[id])
 
             # TODO un-hardcode target
-            if targetValue not in self.frequency['target']:
-                self.frequency['target'][targetValue] = 1
+            if targetValue not in self.frequency['attack_cat']:
+                self.frequency['attack_cat'][targetValue] = 1
             else:
-                self.frequency['target'][targetValue] += 1
+                self.frequency['attack_cat'][targetValue] += 1
 
             for column in attr_categorical: 
                 column = str(column)
@@ -142,7 +149,7 @@ class NaiveBayes:
         for column in self.frequency:
             column = str(column)
 
-            if column == 'target':
+            if column == 'attack_cat':
                 for cat in self.frequency[column]:
                     cat = str(cat)
 
@@ -153,14 +160,20 @@ class NaiveBayes:
                 value = str(value)
 
                 for cat in self.frequency[column][value]:
-                    self.probability[column][value][cat] = self.frequency[column][value][cat]/self.frequency['target'][cat]
+                    self.probability[column][value][cat] = self.frequency[column][value][cat]/self.frequency['attack_cat'][cat]
     
     def __probabilityCategorical(self, attrValue, attribute, targetValue):
-        prob = self.probability[attribute][attrValue][targetValue]
+        try:
+            prob = self.probability[attribute][attrValue][targetValue]
+        except KeyError:
+            prob = 0
         return prob
     
     def __probabilityTarget(self, targetAttr):
-        prob = self.probability['target'][targetAttr]
+        try:
+            prob = self.probability['attack_cat'][targetAttr]
+        except KeyError:
+            prob = 0
         return prob
     
     def printCategoricalModel(self):
@@ -168,10 +181,10 @@ class NaiveBayes:
             print("Model not trained")
             return
 
-        print("FREQUENCY")
+        print("Frequency")
         for column in self.frequency:
             print(f"{column}:")
-            if column == 'target':
+            if column == 'attack_cat':
                 for cat in self.frequency[column]:
                     print(f"    {cat} : {self.frequency[column][cat]}")
                 continue
@@ -181,10 +194,10 @@ class NaiveBayes:
                 for cat in self.frequency[column][value]:
                     print(f"        {cat} : {self.frequency[column][value][cat]}")
 
-        print("\nPROBABILITY")
+        print("\nProbability")
         for column in self.probability:
             print(f"{column}:")
-            if column == 'target':
+            if column == 'attack_cat':
                 for cat in self.probability[column]:
                     print(f"    {cat} : {self.probability[column][cat]}")
                 continue
@@ -196,22 +209,23 @@ class NaiveBayes:
 
     def predict_single(self, row: pd.Series) -> str:
         attr_numerical = self.meanMap.keys()
+        attr_categorical = self.probability.keys()
 
-        max_probability = 0
+        max_probability = -1
         max_target = None
 
-        for targetVal in self.probability['target'].keys():
+        for targetVal in self.probability['attack_cat'].keys():
             probability_val = self.__probabilityTarget(targetAttr=targetVal)
             for attr, value in row.items():
                 attr = str(attr)
-                
+
                 if attr in attr_numerical:
                     probability_val *= self.__probabilityNumeric(attrValue=value, attribute=attr, targetValue=targetVal)
-                else:
+                elif attr in attr_categorical:
                     value = str(value)
                     probability_val *= self.__probabilityCategorical(attrValue=value, attribute=attr, targetValue=targetVal)
-            
-            # print(f"AAA {probability_val} {max_probability} {targetVal}")
+                # else attribute not in train set, skip
+
             if probability_val > max_probability:
                 max_probability = probability_val
                 max_target = targetVal
@@ -226,17 +240,11 @@ class NaiveBayes:
         else:
             raise TypeError("Tipe input bukan merupakan pd.Series ataupun pd.DataFrame.")
             
-        
     def save(self, save_path: str) -> None:     
         """
         Mengubah data model ke dalam bentuk json dan menyimpannya berdasarkan
         path yang diberikan.
         """
-
-        print(json.dumps(self.meanMap))
-        print(json.dumps(self.sdevMap))
-        print(json.dumps(self.frequency))
-        print(json.dumps(self.probability))
 
         serialized_model: Dict[str, Any] = {
             "mean_map": None if self.meanMap is None else self.meanMap,
@@ -244,10 +252,6 @@ class NaiveBayes:
             "frequency_map": None if self.frequency is None else self.frequency,
             "probability_map": None if self.probability is None else self.probability
         }
-
-        for items in serialized_model:
-            print(items)
-        print(json.dumps(serialized_model))
 
         with open(save_path, "w") as file:
             json.dump(serialized_model, file, indent=6)
