@@ -50,13 +50,13 @@ class NaiveBayes:
             print("Model not trained")
             return
 
-        print("MEAN")
+        print("Mean")
         for attr in self.meanMap:
             print(attr)
             for target in self.meanMap[attr]:
                 print(f"    {target}: {self.meanMap[attr][target]}")
 
-        print("\nSTANDARD DEVIATION")
+        print("\nStandard Deviation")
         for attr in self.sdevMap:
             print(attr)
             for target in self.sdevMap[attr]:
@@ -181,7 +181,7 @@ class NaiveBayes:
             print("Model not trained")
             return
 
-        print("FREQUENCY")
+        print("Frequency")
         for column in self.frequency:
             print(f"{column}:")
             if column == 'attack_cat':
@@ -194,7 +194,7 @@ class NaiveBayes:
                 for cat in self.frequency[column][value]:
                     print(f"        {cat} : {self.frequency[column][value][cat]}")
 
-        print("\nPROBABILITY")
+        print("\nProbability")
         for column in self.probability:
             print(f"{column}:")
             if column == 'attack_cat':
@@ -246,21 +246,12 @@ class NaiveBayes:
         path yang diberikan.
         """
 
-        print(json.dumps(self.meanMap))
-        print(json.dumps(self.sdevMap))
-        print(json.dumps(self.frequency))
-        print(json.dumps(self.probability))
-
         serialized_model: Dict[str, Any] = {
             "mean_map": None if self.meanMap is None else self.meanMap,
             "sdev_map": None if self.sdevMap is None else self.sdevMap,
             "frequency_map": None if self.frequency is None else self.frequency,
             "probability_map": None if self.probability is None else self.probability
         }
-
-        for items in serialized_model:
-            print(items)
-        print(json.dumps(serialized_model))
 
         with open(save_path, "w") as file:
             json.dump(serialized_model, file, indent=6)
