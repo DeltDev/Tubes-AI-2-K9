@@ -1,3 +1,4 @@
+import json
 from typing import List, Dict, Optional, Any, Union
 import pandas as pd
 import numpy as np
@@ -12,19 +13,6 @@ class NaiveBayes:
 
     def get_params(self, deep: bool = True) -> Dict[str, Any]:
         return {}
-
-    def __normalDistribution(self, x, mean, sdev):
-        pi = np.pi
-
-        f_x = (1/(np.sqrt(2*pi) * sdev)) * np.exp(-0.5 * (((x-mean)/sdev)**2))
-        return f_x
-
-    def __probabilityNumeric(self, attrValue, attribute, targetValue):
-        mean = self.meanMap[attribute][targetValue]
-        sdev = self.sdevMap[attribute][targetValue]
-
-        prob = self.__normalDistribution(attrValue, mean, sdev)
-        return prob
     
     def __trainNumeric(self):
         # maps the mean of every numerical attributes according to their target/classification
@@ -41,6 +29,8 @@ class NaiveBayes:
 
         targetValues = self.train_y.unique()
         for attr in attr_numerical:
+            attr = str(attr)
+
             if attr not in self.meanMap:
                 self.meanMap[attr] = {}
             
@@ -51,6 +41,7 @@ class NaiveBayes:
                 targetIndex = self.train_y[self.train_y == value].index
                 filter = self.train_X.loc[targetIndex, [attr]].to_numpy()
 
+                value = str(value)
                 self.meanMap[attr][value] = np.mean(filter)
                 self.sdevMap[attr][value] = np.std(filter)
 
@@ -70,6 +61,19 @@ class NaiveBayes:
             print(attr)
             for target in self.sdevMap[attr]:
                 print(f"    {target}: {self.sdevMap[attr][target]}")
+
+    def __probabilityNumeric(self, attrValue, attribute, targetValue):
+        def normalDistribution(x, mean, sdev):
+            pi = np.pi
+
+            f_x = (1/(np.sqrt(2*pi) * sdev)) * np.exp(-0.5 * (((x-mean)/sdev)**2))
+            return f_x
+    
+        mean = self.meanMap[attribute][targetValue]
+        sdev = self.sdevMap[attribute][targetValue]
+
+        prob = normalDistribution(attrValue, mean, sdev)
+        return prob
 
     def __trainCategorical(self):
         attr_numerical = self.train_X.select_dtypes(include=float).columns
@@ -96,7 +100,7 @@ class NaiveBayes:
 
         for id in attr_categorical.index: 
             # add the frequency of the targetLabel value
-            targetValue = bn_target[id]
+            targetValue = str(bn_target[id])
 
             # TODO un-hardcode target
             if targetValue not in self.frequency['target']:
@@ -105,13 +109,14 @@ class NaiveBayes:
                 self.frequency['target'][targetValue] += 1
 
             for column in attr_categorical: 
+                column = str(column)
 
                 # put attribute/targetValue in map
                 if column not in self.frequency:
                     self.frequency[column] = {}
                     self.probability[column] = {}
 
-                attrValue = attr_categorical[column][id]
+                attrValue = str(attr_categorical[column][id])
                 if attrValue not in self.frequency[column]:
                     self.frequency[column][attrValue] = {}
                     self.probability[column][attrValue] = {}
@@ -135,12 +140,18 @@ class NaiveBayes:
         #   ...
 
         for column in self.frequency:
+            column = str(column)
+
             if column == 'target':
                 for cat in self.frequency[column]:
+                    cat = str(cat)
+
                     self.probability[column][cat] = self.frequency[column][cat]/numData
                 continue
 
             for value in self.frequency[column]:
+                value = str(value)
+
                 for cat in self.frequency[column][value]:
                     self.probability[column][value][cat] = self.frequency[column][value][cat]/self.frequency['target'][cat]
     
@@ -184,17 +195,20 @@ class NaiveBayes:
                     print(f"        {cat} : {self.probability[column][value][cat]}")
 
     def predict_single(self, row: pd.Series) -> str:
-        attr_numerical = self.train_X.select_dtypes(include=float).columns
+        attr_numerical = self.meanMap.keys()
 
         max_probability = 0
         max_target = None
 
-        for targetVal in self.train_y.unique():
+        for targetVal in self.probability['target'].keys():
             probability_val = self.__probabilityTarget(targetAttr=targetVal)
             for attr, value in row.items():
+                attr = str(attr)
+                
                 if attr in attr_numerical:
                     probability_val *= self.__probabilityNumeric(attrValue=value, attribute=attr, targetValue=targetVal)
                 else:
+                    value = str(value)
                     probability_val *= self.__probabilityCategorical(attrValue=value, attribute=attr, targetValue=targetVal)
             
             # print(f"AAA {probability_val} {max_probability} {targetVal}")
@@ -213,45 +227,52 @@ class NaiveBayes:
             raise TypeError("Tipe input bukan merupakan pd.Series ataupun pd.DataFrame.")
             
         
-    # def save(self, save_path: str) -> None:     
-    #     """
-    #     Mengubah data model ke dalam bentuk json dan menyimpannya berdasarkan
-    #     path yang diberikan.
-    #     """
-    #     serialized_model: Dict[str, Any] = {
-    #         "k": self.k,
-    #         "method": self.method,
-    #         "p": self.p,
-    #         "train_X": None if self.train_X is None else self.train_X.to_dict(),
-    #         "train_y": None if self.train_y is None else self.train_y.to_list()
-    #     }
+    def save(self, save_path: str) -> None:     
+        """
+        Mengubah data model ke dalam bentuk json dan menyimpannya berdasarkan
+        path yang diberikan.
+        """
 
-    #     with open(save_path, "w") as file:
-    #         json.dump(serialized_model, file)
+        print(json.dumps(self.meanMap))
+        print(json.dumps(self.sdevMap))
+        print(json.dumps(self.frequency))
+        print(json.dumps(self.probability))
 
-    #     print(f"Model tersimpan di {save_path}")
+        serialized_model: Dict[str, Any] = {
+            "mean_map": None if self.meanMap is None else self.meanMap,
+            "sdev_map": None if self.sdevMap is None else self.sdevMap,
+            "frequency_map": None if self.frequency is None else self.frequency,
+            "probability_map": None if self.probability is None else self.probability
+        }
 
-    # @classmethod
-    # def load(cls, load_path: str) -> "KNN":
-    #     """
-    #     Membuka file yang berisi data model dan mengembalikan objek kelas KNN berdasarkan
-    #     data yang telah dimuat.
-    #     """
-    #     try:
-    #         with open(load_path, "r") as file:
-    #             serialized_model: Dict[str, str] = json.load(file)
+        for items in serialized_model:
+            print(items)
+        print(json.dumps(serialized_model))
 
-    #         knn: "KNN" = cls(
-    #             k = serialized_model["k"], 
-    #             method = serialized_model["method"], 
-    #             p = serialized_model["p"]
-    #         )
+        with open(save_path, "w") as file:
+            json.dump(serialized_model, file, indent=6)
 
-    #         knn.train_X = None if serialized_model["train_X"] is None else pd.DataFrame(serialized_model["train_X"])
-    #         knn.train_y = None if serialized_model["train_y"] is None else pd.Series(serialized_model["train_y"])
+        print(f"Model Naive Bayes tersimpan di {save_path}")
 
-    #         print(f"Berhasil memuat model dari {load_path}")
+    @classmethod
+    def load(cls, load_path: str) -> "NaiveBayes":
+        """
+        Membuka file yang berisi data model dan mengembalikan objek kelas NaiveBayes berdasarkan
+        data yang telah dimuat.
+        """
+        try:
+            with open(load_path, "r") as file:
+                serialized_model: Dict[str, str] = json.load(file)
 
-    #         return knn
-    #     except FileNotFoundError:
-    #         raise FileNotFoundError(f"File {load_path} tidak ditemukan.")
+            nb: "NaiveBayes" = cls()
+
+            nb.meanMap = None if serialized_model["mean_map"] is None else dict(serialized_model["mean_map"]) 
+            nb.sdevMap = None if serialized_model["sdev_map"] is None else dict(serialized_model["sdev_map"])
+            nb.frequency = None if serialized_model["frequency_map"] is None else dict(serialized_model["frequency_map"])
+            nb.probability = None if serialized_model["probability_map"] is None else dict(serialized_model["probability_map"])
+
+            print(f"Berhasil memuat model dari {load_path}")
+
+            return nb
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File {load_path} tidak ditemukan.")
