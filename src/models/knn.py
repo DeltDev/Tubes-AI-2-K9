@@ -53,22 +53,14 @@ class KNN:
                 raise ValueError("Method tidak valid.")
 
             # Cari K tetangga dengan distance terkecil.
-            kNearestNeighbour: List[int] = []
-            while len(kNearestNeighbour) < self.k:
-                min_value_idx: int = np.argmin(distances)
-
-                distances: np.ndarray = np.delete(distances, min_value_idx)
-                kNearestNeighbour.append(min_value_idx)
+            kNearestNeighbour: pd.Series = np.argsort(distances)[:self.k]
 
             # Cari kelas yang paling sering muncul di antara KNN. 
-            target: Dict[str, int] = {}
-            for idx in kNearestNeighbour:
-                neighbour: str = str(self.train_y.iloc[idx])
-                target[neighbour] = target.get(neighbour, 0) + 1     
+            target: Dict[str, int] = self.train_y.iloc[kNearestNeighbour].value_counts().to_dict()   
 
             # Kembalikan kelas yang paling sering muncul
             most_common_class: str = max(target, key = target.get)
-            return int(most_common_class)
+            return most_common_class
 
         # Cek model sudah di fit belum
         if self.train_X is None or self.train_y is None:
@@ -124,4 +116,3 @@ class KNN:
             return knn
         except FileNotFoundError:
             raise FileNotFoundError(f"File {load_path} tidak ditemukan.")
-
